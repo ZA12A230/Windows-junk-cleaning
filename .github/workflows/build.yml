@@ -1,0 +1,105 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  OUTPUT_DIR: './build'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Restore dependencies
+      run: dotnet restore SystemCleanerPro/SystemCleanerPro.csproj
+
+    - name: Build project
+      run: dotnet build SystemCleanerPro/SystemCleanerPro.csproj --configuration Release --no-restore
+
+    - name: Publish application
+      run: |
+        dotnet publish SystemCleanerPro/SystemCleanerPro.csproj \
+          --configuration Release \
+          --output "${{ env.OUTPUT_DIR }}" \
+          --runtime win-x64 \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:EnableCompressionInSingleFile=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:PublishReadyToRun=true
+
+    - name: Create output directory
+      run: |
+        if (!(Test-Path "${{ env.OUTPUT_DIR }}")) {
+          New-Item -ItemType Directory -Path "${{ env.OUTPUT_DIR }}" -Force
+        }
+
+    - name: Find published exe
+      id: find_exe
+      run: |
+        $exe = Get-ChildItem "${{ env.OUTPUT_DIR }}" -Filter "*.exe" -File | Select-Object -First 1
+        if ($exe) {
+          Write-Host "Found exe: $($exe.Name)"
+          Write-Host "::set-output name=exe_name::$($exe.Name)"
+          Write-Host "::set-output name=exe_size::$([math]::Round($exe.Length / 1MB, 2)) MB"
+        } else {
+          Write-Host "No exe found"
+          Get-ChildItem "${{ env.OUTPUT_DIR }}" -Recurse -File | Select-Object FullName, Length
+        }
+
+    - name: List build output
+      run: |
+        Write-Host "Build output contents:"
+        Get-ChildItem "${{ env.OUTPUT_DIR }}" -File | Select-Object Name, @{N='Size (MB)';E={[math]::Round($_.Length / 1MB, 2)}}
+        Write-Host ""
+        Write-Host "Total files: $((Get-ChildItem '${{ env.OUTPUT_DIR }}' -File).Count)"
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: SystemCleanerPro-Build
+        path: ${{ env.OUTPUT_DIR }}/*.exe
+        retention-days: 30
+
+    - name: Upload all artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: SystemCleanerPro-Build-All
+        path: ${{ env.OUTPUT_DIR }}/**/*
+        retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: SystemCleanerPro-Build
+        path: ${{ env.OUTPUT_DIR }}
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ env.OUTPUT_DIR }}/*.exe
+        generate_release_notes: true
+        draft: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
