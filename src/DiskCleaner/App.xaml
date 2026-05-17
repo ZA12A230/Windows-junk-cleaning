@@ -1,27 +1,5 @@
 <Application
     x:Class="DiskCleaner.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Startup="Application_Startup"
-    Exit="Application_Exit"
-    DispatcherUnhandledException="Application_DispatcherUnhandledException">
-    <Application.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-            </ResourceDictionary.MergedDictionaries>
-            
-            <!-- 主题资源 -->
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="AppBackgroundColor" Color="#F3F3F3"/>
-                    <SolidColorBrush x:Key="AccentColor" Color="#0078D4"/>
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="AppBackgroundColor" Color="#202020"/>
-                    <SolidColorBrush x:Key="AccentColor" Color="#60CDFF"/>
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
-        </ResourceDictionary>
-    </Application.Resources>
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 </Application>

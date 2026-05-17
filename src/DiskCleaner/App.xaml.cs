@@ -15,7 +15,7 @@ public partial class App : Application
             ?? throw new InvalidOperationException($"Service {typeof(T).Name} not registered");
     }
 
-    private void Application_Startup(object sender, StartupEventArgs e)
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         try
         {
@@ -54,23 +54,6 @@ public partial class App : Application
         
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         mainWindow.Activate();
-    }
-
-    private void Application_Exit(object sender, EventArgs e)
-    {
-        _host?.Dispose();
-    }
-
-    private void Application_DispatcherUnhandledException(object sender, Microsoft.UI.Xaml.DispatcherUnhandledExceptionEventArgs e)
-    {
-        try
-        {
-            var logger = _host?.Services.GetRequiredService<ILogger<App>>();
-            logger?.LogCritical(e.Exception, "Unhandled exception in UI thread");
-        }
-        catch { }
-        
-        e.Handled = true;
     }
 }
 
