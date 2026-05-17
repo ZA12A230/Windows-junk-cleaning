@@ -5,10 +5,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_NOLOGO: 1
-
 jobs:
   build:
     runs-on: windows-latest
@@ -16,60 +12,25 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup .NET 8
+    - name: Setup dotnet
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
     
-    - name: Build and Publish
-      shell: pwsh
-      run: |
-        Write-Host "Starting build..."
-        dotnet build src/DiskCleaner/DiskCleaner.csproj -c Release -r win-x64
-        if ($LASTEXITCODE -ne 0) {
-          Write-Error "Build failed"
-          exit 1
-        }
-        
-        Write-Host "Starting publish..."
-        dotnet publish src/DiskCleaner/DiskCleaner.csproj `
-          -c Release `
-          -r win-x64 `
-          --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:EnableCompressionInSingleFile=true `
-          -o build
-        
-        if ($LASTEXITCODE -ne 0) {
-          Write-Error "Publish failed"
-          exit 1
-        }
-        
-        Write-Host "Build succeeded!"
-        Get-ChildItem build
+    - name: Restore
+      run: dotnet restore
     
-    - name: Upload artifact
+    - name: Build
+      run: dotnet build -c Release --no-restore
+    
+    - name: Publish
+      run: dotnet publish -c Release --no-build -o publish
+    
+    - name: Check output
+      run: dir publish
+    
+    - name: Upload
       uses: actions/upload-artifact@v4
-      if: always()
       with:
-        name: DiskCleaner-EXE
-        path: build/DiskCleaner.exe
-        retention-days: 30
-    
-    - name: Commit and push
-      if: success()
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add build/*
-        git commit -m "[skip ci] Build ${{ github.sha }}" || echo "No changes"
-        git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Create Release
-      if: success()
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: Build-${{ github.run_number }}
-        files: build/DiskCleaner.exe
+        name: DiskCleaner
+        path: publish/
