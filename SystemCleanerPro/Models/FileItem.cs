@@ -1,3 +1,5 @@
+using System;
+
 namespace SystemCleanerPro.Models;
 
 public enum FileCategory

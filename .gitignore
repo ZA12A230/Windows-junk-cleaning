@@ -12,6 +12,15 @@ Desktop.ini
 .settings/
 *.sublime-*
 
+# ===== .NET =====
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.cache
+/[Bb]uild/
+
 # ===== Node.js/Frontend =====
 node_modules/
 .pnpm-store/

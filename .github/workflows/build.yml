@@ -10,10 +10,19 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
   OUTPUT_DIR: './build'
+  RETRY_COUNT: 3
+  RETRY_DELAY: 30
 
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      BUILD_STATUS: 'success'
+      LAST_ERROR: ''
+      ERROR_FILE: ''
+      ERROR_LINE: ''
+      ERROR_COLUMN: ''
+      ERROR_MESSAGE: ''
     
     steps:
     - name: Checkout code
@@ -23,65 +32,213 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
+      continue-on-error: true
+      id: setup_dotnet
 
-    - name: Restore dependencies
-      run: dotnet restore SystemCleanerPro/SystemCleanerPro.csproj
-
-    - name: Build project
-      run: dotnet build SystemCleanerPro/SystemCleanerPro.csproj --configuration Release --no-restore
-
-    - name: Publish application
+    - name: Check .NET installation
+      if: steps.setup_dotnet.outcome == 'failure'
       run: |
-        dotnet publish SystemCleanerPro/SystemCleanerPro.csproj \
-          --configuration Release \
-          --output "${{ env.OUTPUT_DIR }}" \
-          --runtime win-x64 \
-          --self-contained true \
-          -p:PublishSingleFile=true \
-          -p:EnableCompressionInSingleFile=true \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -p:PublishReadyToRun=true
+        Write-Host "::error title=DotnetSetupFailed::.NET SDK 安装失败，请检查网络连接或重试"
+        exit 1
 
-    - name: Create output directory
+    - name: Restore dependencies with error handling
+      id: restore
       run: |
-        if (!(Test-Path "${{ env.OUTPUT_DIR }}")) {
-          New-Item -ItemType Directory -Path "${{ env.OUTPUT_DIR }}" -Force
+        $attempt = 1
+        $maxAttempts = $env:RETRY_COUNT
+        $delaySeconds = $env:RETRY_DELAY
+        
+        while ($attempt -le $maxAttempts) {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 尝试还原依赖 (第 $attempt/$maxAttempts 次)"
+          
+          try {
+            dotnet restore SystemCleanerPro/SystemCleanerPro.csproj --verbosity detailed 2>&1 | Tee-Object -FilePath restore.log
+            
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 依赖还原成功"
+              break
+            }
+            
+            Write-Host "::warning::依赖还原失败，重试中..."
+          }
+          catch {
+            Write-Host "::warning::依赖还原异常: $_"
+          }
+          
+          if ($attempt -lt $maxAttempts) {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 等待 $delaySeconds 秒后重试..."
+            Start-Sleep -Seconds $delaySeconds
+          }
+          
+          $attempt++
+        }
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error title=RestoreFailed::依赖还原失败，已重试 $maxAttempts 次"
+          exit 1
         }
 
-    - name: Find published exe
-      id: find_exe
+    - name: Build project with error handling
+      id: build
       run: |
-        $exe = Get-ChildItem "${{ env.OUTPUT_DIR }}" -Filter "*.exe" -File | Select-Object -First 1
-        if ($exe) {
-          Write-Host "Found exe: $($exe.Name)"
-          Write-Host "::set-output name=exe_name::$($exe.Name)"
-          Write-Host "::set-output name=exe_size::$([math]::Round($exe.Length / 1MB, 2)) MB"
-        } else {
-          Write-Host "No exe found"
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 开始构建项目..."
+        
+        try {
+          dotnet build SystemCleanerPro/SystemCleanerPro.csproj --configuration Release --no-restore --verbosity detailed 2>&1 | Tee-Object -FilePath build.log
+          
+          if ($LASTEXITCODE -ne 0) {
+            $errorContent = Get-Content build.log -Raw
+            
+            if ($errorContent -match 'error CS(\d+): (.+) in (.+?)\((\d+),(\d+)\)') {
+              $errorCode = $matches[1]
+              $errorMsg = $matches[2]
+              $errorFile = $matches[3]
+              $errorLine = $matches[4]
+              $errorCol = $matches[5]
+              
+              Write-Host "::error title=BuildError::编译错误 - 文件: $errorFile, 行: $errorLine, 列: $errorCol, 错误码: CS$errorCode`n错误信息: $errorMsg"
+              Write-Host "::set-output name=error_file::$errorFile"
+              Write-Host "::set-output name=error_line::$errorLine"
+              Write-Host "::set-output name=error_column::$errorCol"
+              Write-Host "::set-output name=error_message::$errorMsg"
+            }
+            else {
+              Write-Host "::error title=BuildError::编译失败，请查看构建日志"
+              Write-Host "构建日志内容:"
+              Get-Content build.log
+            }
+            
+            exit 1
+          }
+          
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 项目构建成功"
+        }
+        catch {
+          Write-Host "::error title=BuildException::构建异常: $_"
+          exit 1
+        }
+
+    - name: Publish application with retry
+      id: publish
+      run: |
+        $attempt = 1
+        $maxAttempts = $env:RETRY_COUNT
+        $delaySeconds = $env:RETRY_DELAY
+        
+        while ($attempt -le $maxAttempts) {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 尝试发布应用 (第 $attempt/$maxAttempts 次)"
+          
+          try {
+            dotnet publish SystemCleanerPro/SystemCleanerPro.csproj `
+              --configuration Release `
+              --output "${{ env.OUTPUT_DIR }}" `
+              --runtime win-x64 `
+              --self-contained true `
+              -p:PublishSingleFile=true `
+              -p:EnableCompressionInSingleFile=true `
+              -p:IncludeNativeLibrariesForSelfExtract=true `
+              -p:PublishReadyToRun=true `
+              --verbosity detailed 2>&1 | Tee-Object -FilePath publish.log
+            
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 应用发布成功"
+              break
+            }
+            
+            $errorContent = Get-Content publish.log -Raw
+            
+            if ($errorContent -match 'error (\w+): (.+)') {
+              Write-Host "::warning::发布失败: $($matches[1]) - $($matches[2])"
+            }
+            else {
+              Write-Host "::warning::发布失败，重试中..."
+            }
+          }
+          catch {
+            Write-Host "::warning::发布异常: $_"
+          }
+          
+          if ($attempt -lt $maxAttempts) {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 等待 $delaySeconds 秒后重试..."
+            Start-Sleep -Seconds $delaySeconds
+          }
+          
+          $attempt++
+        }
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error title=PublishFailed::应用发布失败，已重试 $maxAttempts 次"
+          Write-Host "发布日志内容:"
+          Get-Content publish.log
+          exit 1
+        }
+
+    - name: Verify build output
+      id: verify
+      run: |
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 验证构建输出..."
+        
+        $exePath = Join-Path -Path "${{ env.OUTPUT_DIR }}" -ChildPath "SystemCleanerPro.exe"
+        
+        if (Test-Path $exePath) {
+          $exe = Get-Item $exePath
+          $sizeMB = [math]::Round($exe.Length / 1MB, 2)
+          
+          Write-Host "::notice title=BuildSuccess::✅ 构建成功!"
+          Write-Host "📦 生成文件: $($exe.Name)"
+          Write-Host "📐 文件大小: $sizeMB MB"
+          Write-Host "📍 文件路径: $exePath"
+          
+          Write-Host "::set-output name=exe_name::SystemCleanerPro.exe"
+          Write-Host "::set-output name=exe_size::$sizeMB"
+          Write-Host "::set-output name=exe_path::$exePath"
+        }
+        else {
+          Write-Host "::error title=BuildOutputMissing::构建输出文件不存在!"
+          Write-Host "构建目录内容:"
           Get-ChildItem "${{ env.OUTPUT_DIR }}" -Recurse -File | Select-Object FullName, Length
+          exit 1
         }
 
-    - name: List build output
+    - name: List all build artifacts
       run: |
-        Write-Host "Build output contents:"
-        Get-ChildItem "${{ env.OUTPUT_DIR }}" -File | Select-Object Name, @{N='Size (MB)';E={[math]::Round($_.Length / 1MB, 2)}}
-        Write-Host ""
-        Write-Host "Total files: $((Get-ChildItem '${{ env.OUTPUT_DIR }}' -File).Count)"
+        Write-Host "`n=== 构建产物列表 ==="
+        Get-ChildItem "${{ env.OUTPUT_DIR }}" -File | ForEach-Object {
+          $size = [math]::Round($_.Length / 1KB, 2)
+          if ($_.Length -ge 1MB) {
+            $size = [math]::Round($_.Length / 1MB, 2)
+            Write-Host "$($_.Name) - $size MB"
+          }
+          else {
+            Write-Host "$($_.Name) - $size KB"
+          }
+        }
+        Write-Host "`n=== 总计文件数: $((Get-ChildItem '${{ env.OUTPUT_DIR }}' -File).Count) ==="
 
-    - name: Upload artifacts
+    - name: Upload main artifact
       uses: actions/upload-artifact@v4
       with:
         name: SystemCleanerPro-Build
         path: ${{ env.OUTPUT_DIR }}/*.exe
         retention-days: 30
 
-    - name: Upload all artifacts
+    - name: Upload log files
+      uses: actions/upload-artifact@v4
+      with:
+        name: Build-Logs
+        path: |
+          restore.log
+          build.log
+          publish.log
+        retention-days: 7
+
+    - name: Upload all artifacts for debugging
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: SystemCleanerPro-Build-All
         path: ${{ env.OUTPUT_DIR }}/**/*
-        retention-days: 7
+        retention-days: 3
 
   release:
     needs: build
@@ -94,6 +251,16 @@ jobs:
       with:
         name: SystemCleanerPro-Build
         path: ${{ env.OUTPUT_DIR }}
+
+    - name: Verify downloaded exe
+      run: |
+        if [ -f "${{ env.OUTPUT_DIR }}/SystemCleanerPro.exe" ]; then
+          echo "✅ EXE 文件已下载"
+          ls -la "${{ env.OUTPUT_DIR }}/"
+        else
+          echo "❌ EXE 文件不存在"
+          exit 1
+        fi
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
