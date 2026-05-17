@@ -1,28 +1,10 @@
-<Window
-    x:Class="DiskCleaner.UI.Views.MainWindow"
+<Window x:Class="DiskCleaner.UI.Views.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="DiskCleaner - Windows 系统清理工具"
-    Width="1200"
-    Height="800"
-    WindowStartupLocation="CenterScreen">
-    
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        
-        <TabControl Grid.Column="1" Margin="10">
-            <TabItem Header="清理">
-                <Frame x:Name="CleanFrame" NavigationUIVisibility="Hidden"/>
-            </TabItem>
-            <TabItem Header="软件卸载">
-                <Frame x:Name="UninstallFrame" NavigationUIVisibility="Hidden"/>
-            </TabItem>
-            <TabItem Header="设置">
-                <Frame x:Name="SettingsFrame" NavigationUIVisibility="Hidden"/>
-            </TabItem>
-        </TabControl>
-    </Grid>
+    Title="DiskCleaner" Width="1000" Height="700" WindowStartupLocation="CenterScreen">
+    <TabControl>
+        <TabItem Header="清理"><Frame x:Name="CleanFrame" NavigationUIVisibility="Hidden"/></TabItem>
+        <TabItem Header="卸载"><Frame x:Name="UninstallFrame" NavigationUIVisibility="Hidden"/></TabItem>
+        <TabItem Header="设置"><Frame x:Name="SettingsFrame" NavigationUIVisibility="Hidden"/></TabItem>
+    </TabControl>
 </Window>

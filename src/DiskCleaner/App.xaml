@@ -1,6 +1,4 @@
-<Application
-    x:Class="DiskCleaner.App"
+<Application x:Class="DiskCleaner.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    StartupUri="UI/Views/MainWindow.xaml">
-</Application>
+    StartupUri="UI/Views/MainWindow.xaml"/>
