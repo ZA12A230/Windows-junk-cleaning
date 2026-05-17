@@ -17,37 +17,16 @@ jobs:
       with:
         dotnet-version: '8.0.x'
     
-    - name: Restore and Build
-      run: dotnet restore && dotnet build -c Release --no-restore
-    
     - name: Publish
-      run: dotnet publish -c Release --no-build -o publish
+      run: |
+        echo "=== Starting Publish ==="
+        dotnet --version
+        dotnet publish src/DiskCleaner/DiskCleaner.csproj -c Release -o publish -r win-x64 --self-contained true
+        echo "=== Publish Complete ==="
+        dir publish
     
-    - name: List output
-      run: dir publish
-    
-    - name: Upload artifact
+    - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: DiskCleaner
         path: publish/
-        retention-days: 30
-    
-    - name: Commit EXE to build folder
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        mkdir -p build
-        copy publish\DiskCleaner.exe build\ || copy publish\*\DiskCleaner.exe build\
-        git add build/*
-        git commit -m "[skip ci] Build ${{ github.sha }}" || echo "No changes"
-        git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ github.run_number }}
-        files: build/DiskCleaner.exe
-        generate_release_notes: true
