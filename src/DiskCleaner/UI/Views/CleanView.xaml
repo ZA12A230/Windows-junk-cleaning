@@ -1,13 +1,7 @@
 <Page
     x:Class="DiskCleaner.UI.Views.CleanView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="clr-namespace:DiskCleaner.UI.ViewModels"
-    xmlns:models="clr-namespace:DiskCleaner.Models">
-    
-    <Page.DataContext>
-        <vm:CleanViewModel/>
-    </Page.DataContext>
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -16,22 +10,14 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <!-- 工具栏 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
-            <Button Content="开始扫描" Command="{Binding StartScanCommand}" Width="120" Margin="0,0,10,0"/>
-            <Button Content="取消" Command="{Binding CancelScanCommand}" Width="80" Margin="0,0,10,0"/>
-            <Button Content="清理选中" Command="{Binding CleanSelectedCommand}" Width="120" Margin="0,0,10,0"/>
-            <Button Content="清理全部" Command="{Binding CleanAllCommand}" Width="120"/>
+            <Button x:Name="ScanBtn" Content="开始扫描" Width="120" Margin="0,0,10,0"/>
+            <Button x:Name="CancelBtn" Content="取消" Width="80" Margin="0,0,10,0" IsEnabled="False"/>
+            <Button x:Name="CleanBtn" Content="清理选中" Width="120" Margin="0,0,10,0"/>
+            <Button x:Name="CleanAllBtn" Content="清理全部" Width="120"/>
         </StackPanel>
         
-        <!-- 文件列表 -->
-        <DataGrid Grid.Row="1" 
-                  ItemsSource="{Binding Files}" 
-                  SelectedItem="{Binding SelectedFile}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  IsReadOnly="True"
-                  Margin="0,0,0,20">
+        <DataGrid x:Name="FilesGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" Margin="0,0,0,20">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="文件名" Binding="{Binding FileName}" Width="250"/>
                 <DataGridTextColumn Header="大小" Binding="{Binding FormattedSize}" Width="100"/>
@@ -41,20 +27,8 @@
             </DataGrid.Columns>
         </DataGrid>
         
-        <!-- 状态栏 -->
         <StackPanel Grid.Row="2" Orientation="Horizontal">
-            <TextBlock>
-                <Run Text="总计:"/>
-                <Run Text="{Binding TotalCount}"/>
-                <Run Text="个文件,"/>
-                <Run Text="总计:"/>
-                <Run Text="{Binding TotalSize}"/>
-                <Run Text="bytes"/>
-            </TextBlock>
+            <TextBlock x:Name="StatusText" Text="总计：0 个文件"/>
         </StackPanel>
-        
-        <!-- 进度条 -->
-        <ProgressBar Grid.Row="2" Value="{Binding ScanProgressValue}" Maximum="100" Height="20" 
-                     Visibility="{Binding IsScanning, Converter={StaticResource BooleanToVisibilityConverter}}"/>
     </Grid>
 </Page>
