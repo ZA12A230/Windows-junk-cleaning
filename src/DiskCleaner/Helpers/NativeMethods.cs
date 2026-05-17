@@ -1,33 +1,30 @@
 using System.Runtime.InteropServices;
-using System.Security.Privilege;
-using DiskCleaner.Models;
 
 namespace DiskCleaner.Helpers;
 
-internal static partial class NativeMethods
+internal static class NativeMethods
 {
-    [LibraryImport("ntdll.dll")]
-    [return: MarshalAs(UnmanagedType.I4)]
-    public static partial int NtQuerySystemInformation(
+    [DllImport("ntdll.dll")]
+    public static extern int NtQuerySystemInformation(
         int SystemInformationClass,
         nint SystemInformation,
         int SystemInformationLength,
         out int ReturnLength);
     
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool MoveFileEx(
+    public static extern bool MoveFileEx(
         string lpExistingFileName,
         string? lpNewFileName,
         uint dwFlags);
     
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool DeleteFile(string lpFileName);
+    public static extern bool DeleteFile(string lpFileName);
     
-    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool CloseHandle(nint hObject);
+    public static extern bool CloseHandle(nint hObject);
     
     [DllImport("advapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -82,6 +79,7 @@ internal static partial class NativeMethods
     
     public const int SystemHandleInformation = 16;
     
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
     public struct LUID
     {
         public int LowPart;

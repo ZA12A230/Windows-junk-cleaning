@@ -1,12 +1,9 @@
-using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace DiskCleaner.Helpers;
 
-public class PrivilegeHelper
+public static class PrivilegeHelper
 {
-    private static readonly ILogger<PrivilegeHelper> _logger = 
-        App.GetService<ILogger<PrivilegeHelper>>();
-    
     public static void EnableAllPrivileges()
     {
         EnablePrivilege("SeDebugPrivilege");
@@ -25,7 +22,7 @@ public class PrivilegeHelper
                 NativeMethods.TOKEN_ADJUST_PRIVILEGES | NativeMethods.TOKEN_QUERY,
                 out tokenHandle))
             {
-                _logger.LogWarning("Failed to open process token for {Privilege}", privilegeName);
+                Debug.WriteLine($"Failed to open process token for {privilegeName}");
                 return false;
             }
             
@@ -33,7 +30,7 @@ public class PrivilegeHelper
             {
                 if (!NativeMethods.LookupPrivilegeValue(null, privilegeName, out var luid))
                 {
-                    _logger.LogWarning("Failed to lookup privilege value for {Privilege}", privilegeName);
+                    Debug.WriteLine($"Failed to lookup privilege value for {privilegeName}");
                     return false;
                 }
                 
@@ -50,15 +47,15 @@ public class PrivilegeHelper
                     tokenHandle,
                     false,
                     ref tp,
-                    Marshal.SizeOf(tp),
+                    System.Runtime.InteropServices.Marshal.SizeOf(tp),
                     nint.Zero,
                     nint.Zero))
                 {
-                    _logger.LogWarning("Failed to adjust token privileges for {Privilege}", privilegeName);
+                    Debug.WriteLine($"Failed to adjust token privileges for {privilegeName}");
                     return false;
                 }
                 
-                _logger.LogInformation("Enabled privilege: {Privilege}", privilegeName);
+                Debug.WriteLine($"Enabled privilege: {privilegeName}");
                 return true;
             }
             finally
@@ -69,7 +66,7 @@ public class PrivilegeHelper
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error enabling privilege {Privilege}", privilegeName);
+            Debug.WriteLine($"Error enabling privilege {privilegeName}: {ex.Message}");
             return false;
         }
     }
