@@ -27,47 +27,73 @@ jobs:
     - name: Restore NuGet packages
       run: dotnet restore --verbosity normal
     
-    - name: Build Debug first (test)
+    - name: Build Project (Debug)
       run: |
-        dotnet build src/DiskCleaner/DiskCleaner.csproj -c Debug -r win-x64 --verbosity detailed
-      continue-on-error: true
+        Write-Host "::group::Build Output"
+        dotnet build src/DiskCleaner/DiskCleaner.csproj -c Debug -r win-x64 --verbosity detailed 2>&1 | Tee-Object -Variable buildOutput
+        Write-Host "::endgroup::"
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error::Build failed"
+          $buildOutput | Select-String "error" | ForEach-Object {
+            Write-Host "::error file=.$($_.ToString().Split('(')[0].Replace(' ','')),line=$($_.ToString()),endcolumn=1000::$_"
+          }
+          exit 1
+        }
+        Write-Host "Build succeeded"
+      shell: pwsh
     
-    - name: Build with retry
-      uses: nick-fields/retry@v3
-      with:
-        timeout_minutes: 15
-        max_attempts: 3
-        retry_wait_seconds: 10
-        shell: pwsh
-        command: |
-          Write-Host "Starting publish..."
-          dotnet publish src/DiskCleaner/DiskCleaner.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:WindowsPackageType=None `
-            --verbosity detailed `
-            -o build
-          Write-Host "Publish completed with exit code: $LASTEXITCODE"
+    - name: Publish EXE
+      run: |
+        Write-Host "::group::Publish Output"
+        dotnet publish src/DiskCleaner/DiskCleaner.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:EnableCompressionInSingleFile=true `
+          -p:WindowsPackageType=None `
+          --verbosity detailed `
+          -o build 2>&1 | Tee-Object -Variable publishOutput
+        Write-Host "::endgroup::"
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error::Publish failed"
+          $publishOutput | Select-String "error" | ForEach-Object {
+            $line = $_.ToString()
+            if ($line -match ".*\((\d+),(\d+)\): error .*") {
+              $file = $line.Split('(')[0].Replace(' ','')
+              $lineNum = $matches[1]
+              Write-Host "::error file=src/DiskCleaner/$file,line=$lineNum,title=Build Error::$line"
+            } else {
+              Write-Host "::error::$line"
+            }
+          }
+          exit 1
+        }
+        Write-Host "Publish succeeded"
+      shell: pwsh
     
     - name: List build output
       run: |
         Write-Host "Contents of build directory:"
-        Get-ChildItem build -Recurse | ForEach-Object { Write-Host $_.FullName }
+        Get-ChildItem build -Recurse -File | ForEach-Object { 
+          Write-Host "  $($_.FullName) - $($_.Length / 1KB) KB"
+        }
+      shell: pwsh
     
     - name: Verify EXE exists
       run: |
         if (Test-Path build/DiskCleaner.exe) {
-          Write-Host "✓ Build succeeded - EXE found"
+          Write-Host "::notice::Build succeeded - EXE found"
           $exe = Get-Item build/DiskCleaner.exe
-          Write-Host "EXE size: $($exe.Length / 1MB) MB"
+          Write-Host "EXE size: $([math]::Round($exe.Length / 1MB, 2)) MB"
         } else {
-          Write-Error "✗ Build failed - EXE not found"
+          Write-Host "::error::Build failed - EXE not found"
           Get-ChildItem build -Recurse
           exit 1
         }
+      shell: pwsh
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
