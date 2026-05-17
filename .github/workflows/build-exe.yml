@@ -1,0 +1,72 @@
+name: Build EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore NuGet packages
+      run: dotnet restore
+    
+    - name: Build with retry
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 15
+        max_attempts: 3
+        retry_wait_seconds: 10
+        command: |
+          dotnet publish src/DiskCleaner/DiskCleaner.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:WindowsPackageType=None `
+            -o build
+    
+    - name: Verify EXE exists
+      run: |
+        if (Test-Path build/DiskCleaner.exe) {
+          Write-Host "✓ Build succeeded"
+        } else {
+          Write-Error "✗ Build failed - EXE not found"
+          exit 1
+        }
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DiskCleaner-EXE
+        path: build/DiskCleaner.exe
+        retention-days: 30
+    
+    - name: Commit to build directory
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add build/*
+        git commit -m "🔨 Build ${{ github.sha }} succeeded [skip ci]" || echo "No changes"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: Build-${{ github.run_number }}-${{ github.sha }}
+        name: "Build ${{ github.run_number }} - ${{ github.event.head_commit.message }}"
+        files: build/DiskCleaner.exe
+        generate_release_notes: true
+        fail_on_unmatched_files: false

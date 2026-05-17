@@ -1,0 +1,34 @@
+<Window
+    x:Class="DiskCleaner.UI.Views.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    Title="DiskCleaner"
+    Width="1200"
+    Height="800">
+    
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <NavigationView
+            x:Name="NavView"
+            Grid.Column="0"
+            PaneDisplayMode="Left"
+            IsPaneToggleButtonVisible="False"
+            SelectionChanged="NavView_SelectionChanged">
+            
+            <NavigationView.MenuItems>
+                <NavigationViewItem Icon="Clean" Content="清理" Tag="clean"/>
+                <NavigationViewItem Icon="Delete" Content="软件卸载" Tag="uninstall"/>
+                <NavigationViewItem Icon="Setting" Content="设置" Tag="settings"/>
+            </NavigationView.MenuItems>
+            
+            <Frame x:Name="ContentFrame"/>
+        </NavigationView>
+        
+        <Grid Grid.Column="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"/>
+    </Grid>
+</Window>
