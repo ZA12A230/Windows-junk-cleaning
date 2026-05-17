@@ -1,5 +1,4 @@
-using System.Collections.Concurrent;
-using System.IO.Enumeration;
+using System.IO;
 using DiskCleaner.Models;
 
 namespace DiskCleaner.Core.Scanning;
@@ -17,22 +16,18 @@ public interface IScannerEngine
 public class ScannerEngine : IScannerEngine
 {
     private readonly FileClassifier _classifier;
-    private readonly ILogger<ScannerEngine> _logger;
     private CancellationTokenSource? _cancellationTokenSource;
     
     private static readonly string[] ProtectedDirectories =
     [
         @"C:\Windows\System32",
         @"C:\Windows\WinSxS",
-        @"C:\Program Files\WindowsApps",
-        @"C:\ProgramData\Microsoft\Windows",
-        @"C:\Windows\Microsoft.NET"
+        @"C:\Program Files\WindowsApps"
     ];
 
-    public ScannerEngine(FileClassifier classifier, ILogger<ScannerEngine> logger)
+    public ScannerEngine(FileClassifier classifier)
     {
         _classifier = classifier;
-        _logger = logger;
     }
     
     public async Task<ScanResult> ScanAllDrivesAsync(
@@ -48,14 +43,12 @@ public class ScannerEngine : IScannerEngine
             .Where(d => d.DriveType == DriveType.Fixed && d.IsReady)
             .ToList();
         
-        _logger.LogInformation("Starting scan on {DriveCount} drives", drives.Count);
+        var junkFiles = new System.Collections.Concurrent.ConcurrentBag<FileEntry>();
+        var unusedFiles = new System.Collections.Concurrent.ConcurrentBag<FileEntry>();
+        var largeFiles = new System.Collections.Concurrent.ConcurrentBag<FileEntry>();
+        var unimportantFiles = new System.Collections.Concurrent.ConcurrentBag<FileEntry>();
         
-        var junkFiles = new ConcurrentBag<FileEntry>();
-        var unusedFiles = new ConcurrentBag<FileEntry>();
-        var largeFiles = new ConcurrentBag<FileEntry>();
-        var unimportantFiles = new ConcurrentBag<FileEntry>();
-        
-        var progressReporter = new ProgressReporter(progress, options);
+        var progressReporter = new ProgressReporter(progress);
         
         try
         {
@@ -70,13 +63,12 @@ public class ScannerEngine : IScannerEngine
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Scan cancelled by user");
             throw;
         }
         
         stopwatch.Stop();
         
-        var result = new ScanResult
+        return new ScanResult
         {
             JunkFiles = junkFiles.ToList().AsReadOnly(),
             UnusedFiles = unusedFiles.ToList().AsReadOnly(),
@@ -85,11 +77,6 @@ public class ScannerEngine : IScannerEngine
             ScanTime = DateTime.Now,
             Duration = stopwatch.Elapsed
         };
-        
-        _logger.LogInformation("Scan completed in {Duration} - Found {Count} files ({Size})", 
-            result.Duration, result.TotalCount, result.TotalSize);
-        
-        return result;
     }
     
     private async Task ScanDriveAsync(
@@ -98,23 +85,8 @@ public class ScannerEngine : IScannerEngine
         ProgressReporter progress,
         CancellationToken token)
     {
-        try
-        {
-            _logger.LogDebug("Scanning drive {DriveName}", drive.Name);
-            
-            if (!drive.IsReady)
-                return;
-            
-            await ScanDirectoryAsync(drive.RootDirectory.FullName, options, progress, token);
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error scanning drive {DriveName}", drive.Name);
-        }
+        if (!drive.IsReady) return;
+        await ScanDirectoryAsync(drive.RootDirectory.FullName, options, progress, token);
     }
     
     private async Task ScanDirectoryAsync(
@@ -123,56 +95,43 @@ public class ScannerEngine : IScannerEngine
         ProgressReporter progress,
         CancellationToken token)
     {
-        if (IsProtectedPath(path))
-            return;
+        if (IsProtectedPath(path)) return;
         
         progress.ReportCurrentDirectory(path);
         
         try
         {
             var files = Directory.EnumerateFiles(path);
-            await Parallel.ForEachAsync(files, new ParallelOptions
+            foreach (var filePath in files)
             {
-                MaxDegreeOfParallelism = 8,
-                CancellationToken = token
-            }, async (filePath, ct) =>
-            {
-                var entry = await ProcessFileAsync(filePath, options, ct);
-                if (entry != null)
+                if (token.IsCancellationRequested) return;
+                
+                try
                 {
-                    progress.AddFile(entry);
+                    var entry = await ProcessFileAsync(filePath, options, token);
+                    if (entry != null) progress.AddFile(entry);
                 }
-            });
+                catch { }
+            }
         }
-        catch (UnauthorizedAccessException)
-        {
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogDebug(ex, "Error enumerating files in {Path}", path);
-        }
+        catch { }
         
-        var directories = Directory.EnumerateDirectories(path);
-        foreach (var dir in directories)
+        try
         {
-            if (token.IsCancellationRequested)
-                token.ThrowIfCancellationRequested();
-            
-            if (IsProtectedPath(dir))
-                continue;
-            
-            try
+            var directories = Directory.EnumerateDirectories(path);
+            foreach (var dir in directories)
             {
-                await ScanDirectoryAsync(dir, options, progress, token);
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogDebug(ex, "Error scanning directory {Dir}", dir);
+                if (token.IsCancellationRequested) return;
+                if (IsProtectedPath(dir)) continue;
+                
+                try
+                {
+                    await ScanDirectoryAsync(dir, options, progress, token);
+                }
+                catch { }
             }
         }
+        catch { }
     }
     
     private async Task<FileEntry?> ProcessFileAsync(
@@ -183,14 +142,10 @@ public class ScannerEngine : IScannerEngine
         try
         {
             var fileInfo = new FileInfo(filePath);
-            
-            if (!fileInfo.Exists)
-                return null;
+            if (!fileInfo.Exists) return null;
             
             var fileType = _classifier.Classify(fileInfo, options);
-            
-            if (fileType == FileType.Unknown)
-                return null;
+            if (fileType == FileType.Unknown) return null;
             
             return new FileEntry
             {
@@ -201,34 +156,10 @@ public class ScannerEngine : IScannerEngine
                 LastAccessTime = fileInfo.LastAccessTime,
                 LastWriteTime = fileInfo.LastWriteTime,
                 Extension = fileInfo.Extension,
-                Directory = fileInfo.DirectoryName,
-                IsInUse = await IsFileInUseAsync(fileInfo, token)
+                Directory = fileInfo.DirectoryName
             };
         }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Error processing file {FilePath}", filePath);
-            return null;
-        }
-    }
-    
-    private static Task<bool> IsFileInUseAsync(FileInfo fileInfo, CancellationToken token)
-    {
-        return Task.Run(() =>
-        {
-            try
-            {
-                using var stream = fileInfo.Open(
-                    FileMode.Open,
-                    FileAccess.ReadWrite,
-                    FileShare.None);
-                return false;
-            }
-            catch
-            {
-                return true;
-            }
-        }, token);
+        catch { return null; }
     }
     
     private static bool IsProtectedPath(string path)
@@ -237,43 +168,35 @@ public class ScannerEngine : IScannerEngine
         return ProtectedDirectories.Any(d => normalized.StartsWith(d.ToLowerInvariant()));
     }
     
-    public void Cancel()
-    {
-        _cancellationTokenSource?.Cancel();
-    }
+    public void Cancel() => _cancellationTokenSource?.Cancel();
 }
 
 public class ProgressReporter
 {
     private readonly IProgress<ScanProgress> _progress;
-    private readonly ScanOptions _options;
     private int _filesFound;
     private long _totalSizeScanned;
     
-    public ProgressReporter(IProgress<ScanProgress> progress, ScanOptions options)
+    public ProgressReporter(IProgress<ScanProgress> progress)
     {
         _progress = progress;
-        _options = options;
     }
     
     public void ReportCurrentDirectory(string directory)
     {
-        var progressObj = new ScanProgress
+        _progress?.Report(new ScanProgress
         {
             CurrentDirectory = directory,
             FilesFound = _filesFound,
             TotalSizeScanned = _totalSizeScanned,
             ProgressPercentage = 0
-        };
-        
-        _progress?.Report(progressObj);
+        });
     }
     
     public void AddFile(FileEntry entry)
     {
         Interlocked.Increment(ref _filesFound);
         Interlocked.Add(ref _totalSizeScanned, entry.FileSize);
-        
         ReportCurrentDirectory("");
     }
 }
