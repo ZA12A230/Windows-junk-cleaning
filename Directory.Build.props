@@ -1,8 +1,0 @@
-<Project>
-  <PropertyGroup>
-    <LangVersion>12.0</LangVersion>
-    <WarningLevel>4</WarningLevel>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <NoWarn>$(NoWarn);CS1591;CS1998</NoWarn>
-  </PropertyGroup>
-</Project>
