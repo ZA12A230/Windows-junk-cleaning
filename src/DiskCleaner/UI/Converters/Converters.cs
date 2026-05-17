@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml.Data;
+using System.Windows.Data;
 
 namespace DiskCleaner.UI.Converters;
 

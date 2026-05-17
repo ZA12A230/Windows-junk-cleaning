@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml.Controls;
+using System.Windows.Controls;
 
 namespace DiskCleaner.UI.Views;
 

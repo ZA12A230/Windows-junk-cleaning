@@ -1,22 +1,22 @@
+using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.UI.Xaml;
+using DiskCleaner.Core.Scanning;
+using DiskCleaner.Core.Cleaning;
+using DiskCleaner.Services;
+using DiskCleaner.UI.ViewModels;
+using DiskCleaner.UI.Views;
 
 namespace DiskCleaner;
 
 public partial class App : Application
 {
-    private IHost? _host;
+    public static IServiceProvider Services { get; private set; } = null!;
     
-    public static T GetService<T>() where T : class
+    protected override void OnStartup(StartupEventArgs e)
     {
-        var app = (App)Current;
-        return app._host?.Services.GetRequiredService<T>() 
-            ?? throw new InvalidOperationException($"Service {typeof(T).Name} not registered");
-    }
-
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
-    {
+        base.OnStartup(e);
+        
         try
         {
             Helpers.PrivilegeHelper.EnableAllPrivileges();
@@ -26,7 +26,7 @@ public partial class App : Application
             System.Diagnostics.Debug.WriteLine($"Failed to enable privileges: {ex.Message}");
         }
         
-        _host = Host.CreateDefaultBuilder()
+        var host = Host.CreateDefaultBuilder()
             .ConfigureLogging(builder =>
             {
                 builder.AddDebug();
@@ -39,21 +39,25 @@ public partial class App : Application
                 services.AddSingleton<FileClassifier>();
                 services.AddSingleton<IScannerEngine, ScannerEngine>();
                 services.AddSingleton<ICleanerEngine, CleanerEngine>();
-                services.AddSingleton<CleanViewModel>();
                 services.AddSingleton<MainWindow>();
+                services.AddSingleton<CleanViewModel>();
                 services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
             })
             .Build();
         
+        Services = host.Services;
+        
         try
         {
-            var logger = _host.Services.GetRequiredService<ILogger<App>>();
+            var logger = Services.GetRequiredService<ILogger<App>>();
             logger.LogInformation("Application started");
         }
         catch { }
-        
-        var mainWindow = _host.Services.GetRequiredService<MainWindow>();
-        mainWindow.Activate();
+    }
+    
+    public static T GetService<T>() where T : class
+    {
+        return Services.GetRequiredService<T>();
     }
 }
 
