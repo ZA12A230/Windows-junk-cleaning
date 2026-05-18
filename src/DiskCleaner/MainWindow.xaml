@@ -7,7 +7,7 @@
         xmlns:vm="clr-namespace:DiskCleaner.ViewModels"
         mc:Ignorable="d"
         Title="Windows 系统清理工具" 
-        Height="700" Width="1100"
+        Height="750" Width="1200"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundColor}">
     
@@ -43,7 +43,7 @@
                                FontSize="28" 
                                FontWeight="Bold" 
                                Foreground="White"/>
-                    <TextBlock Text="深度清理 · 智能扫描 · 安全卸载" 
+                    <TextBlock Text="深度清理 · 智能扫描 · 安全卸载 · 软件管理" 
                                FontSize="14" 
                                Foreground="#E2E8F0" 
                                Margin="0,5,0,0"/>
@@ -61,124 +61,209 @@
         </Border>
         
         <!-- Main Content -->
-        <Grid Grid.Row="1" Margin="20">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+        <TabControl Grid.Row="1" Margin="20" Background="Transparent" BorderThickness="0">
+            <TabControl.Resources>
+                <Style TargetType="TabItem">
+                    <Setter Property="Background" Value="#1E293B"/>
+                    <Setter Property="Foreground" Value="#E2E8F0"/>
+                    <Setter Property="Padding" Value="15,10"/>
+                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Style>
+            </TabControl.Resources>
             
-            <!-- Left Panel - Scan Options -->
-            <Border Grid.Column="0" 
-                    Background="#1E293B" 
-                    CornerRadius="12" 
-                    Padding="20"
-                    Margin="0,0,10,0">
-                <StackPanel>
-                    <TextBlock Text="扫描选项" 
-                               FontSize="18" 
-                               FontWeight="Bold" 
-                               Foreground="White"
-                               Margin="0,0,0,20"/>
+            <!-- 文件清理标签页 -->
+            <TabItem Header="文件清理">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="350"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     
-                    <CheckBox Content="临时文件" 
-                              IsChecked="{Binding ScanTempFiles}"
-                              Foreground="#E2E8F0"
-                              FontSize="14"
-                              Margin="0,0,0,15"/>
+                    <!-- Left Panel - Scan Options -->
+                    <Border Grid.Column="0" 
+                            Background="#1E293B" 
+                            CornerRadius="12" 
+                            Padding="20"
+                            Margin="0,0,10,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="扫描选项" 
+                                           FontSize="18" 
+                                           FontWeight="Bold" 
+                                           Foreground="White"
+                                           Margin="0,0,0,20"/>
+                                
+                                <CheckBox Content="临时文件" 
+                                          IsChecked="{Binding ScanTempFiles}"
+                                          Foreground="#E2E8F0"
+                                          FontSize="14"
+                                          Margin="0,0,0,15"/>
+                                
+                                <CheckBox Content="回收站" 
+                                          IsChecked="{Binding ScanRecycleBin}"
+                                          Foreground="#E2E8F0"
+                                          FontSize="14"
+                                          Margin="0,0,0,15"/>
+                                
+                                <CheckBox Content="浏览器缓存" 
+                                          IsChecked="{Binding ScanBrowserCache}"
+                                          Foreground="#E2E8F0"
+                                          FontSize="14"
+                                          Margin="0,0,0,15"/>
+                                
+                                <CheckBox Content="下载文件夹" 
+                                          IsChecked="{Binding ScanDownloads}"
+                                          Foreground="#E2E8F0"
+                                          FontSize="14"
+                                          Margin="0,0,0,15"/>
+                                
+                                <CheckBox Content="大文件扫描" 
+                                          IsChecked="{Binding ScanLargeFiles}"
+                                          Foreground="#E2E8F0"
+                                          FontSize="14"
+                                          Margin="0,0,0,10"/>
+                                
+                                <StackPanel Margin="20,0,0,20" IsEnabled="{Binding ScanLargeFiles}">
+                                    <TextBlock Text="最小文件大小：" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,5"/>
+                                    <ComboBox SelectedIndex="1" FontSize="12">
+                                        <ComboBoxItem Content="50 MB"/>
+                                        <ComboBoxItem Content="100 MB" IsSelected="True"/>
+                                        <ComboBoxItem Content="500 MB"/>
+                                        <ComboBoxItem Content="1 GB"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                
+                                <TextBlock Text="扫描驱动器" 
+                                           FontSize="14" 
+                                           FontWeight="SemiBold"
+                                           Foreground="White"
+                                           Margin="0,10,0,10"/>
+                                
+                                <ItemsControl ItemsSource="{Binding AvailableDrives}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Content="{Binding}" 
+                                                      Foreground="#E2E8F0"
+                                                      FontSize="12"
+                                                      Margin="0,0,0,5"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                
+                                <Button Content="开始扫描" 
+                                        Style="{StaticResource ModernButton}"
+                                        FontSize="16"
+                                        Padding="30,15"
+                                        Margin="0,20,0,0"
+                                        Command="{Binding StartScanCommand}"/>
+                                
+                                <Button Content="清理选中文件" 
+                                        Style="{StaticResource ModernButton}"
+                                        Background="{StaticResource AccentColor}"
+                                        FontSize="16"
+                                        Padding="30,15"
+                                        Margin="0,15,0,0"
+                                        Command="{Binding CleanFilesCommand}"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
                     
-                    <CheckBox Content="回收站" 
-                              IsChecked="{Binding ScanRecycleBin}"
-                              Foreground="#E2E8F0"
-                              FontSize="14"
-                              Margin="0,0,0,15"/>
-                    
-                    <CheckBox Content="浏览器缓存" 
-                              IsChecked="{Binding ScanBrowserCache}"
-                              Foreground="#E2E8F0"
-                              FontSize="14"
-                              Margin="0,0,0,30"/>
-                    
-                    <Button Content="开始扫描" 
-                            Style="{StaticResource ModernButton}"
-                            FontSize="16"
-                            Padding="30,15"
-                            Command="{Binding StartScanCommand}"/>
-                    
-                    <Button Content="清理选中" 
-                            Style="{StaticResource ModernButton}"
-                            Background="{StaticResource AccentColor}"
-                            FontSize="16"
-                            Padding="30,15"
-                            Margin="0,15,0,0"
-                            Command="{Binding CleanFilesCommand}"/>
-                </StackPanel>
-            </Border>
+                    <!-- Right Panel - File List -->
+                    <Border Grid.Column="1" 
+                            Background="#1E293B" 
+                            CornerRadius="12" 
+                            Padding="20">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Grid.Row="0" 
+                                       Text="扫描结果" 
+                                       FontSize="18" 
+                                       FontWeight="Bold" 
+                                       Foreground="White"
+                                       Margin="0,0,0,15"/>
+                            
+                            <DataGrid Grid.Row="1" 
+                                      ItemsSource="{Binding Files}"
+                                      AutoGenerateColumns="False"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      RowBackground="#1E293B"
+                                      AlternatingRowBackground="#334155"
+                                      Foreground="#E2E8F0"
+                                      GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="#334155"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      IsReadOnly="False"
+                                      SelectionMode="Extended">
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Header="选择" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                                    <DataGridTextColumn Header="文件名" Binding="{Binding Name}" Width="300" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="大小" Binding="{Binding SizeDisplay}" Width="100" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="类型" Binding="{Binding Type}" Width="120" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="路径" Binding="{Binding Path}" Width="*" IsReadOnly="True"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
             
-            <!-- Right Panel - File List -->
-            <Border Grid.Column="1" 
-                    Background="#1E293B" 
-                    CornerRadius="12" 
-                    Padding="20">
+            <!-- 软件卸载标签页 -->
+            <TabItem Header="软件卸载" IsSelected="True">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     
-                    <TextBlock Grid.Row="0" 
-                               Text="扫描结果" 
-                               FontSize="18" 
-                               FontWeight="Bold" 
-                               Foreground="White"
-                               Margin="0,0,0,15"/>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
+                        <Button Content="刷新软件列表" 
+                                Style="{StaticResource ModernButton}"
+                                Background="{StaticResource SecondaryColor}"
+                                Command="{Binding LoadSoftwareCommand}"
+                                Margin="0,0,10,0"/>
+                        <Button Content="卸载选中软件" 
+                                Style="{StaticResource ModernButton}"
+                                Background="#EF4444"
+                                Command="{Binding UninstallSelectedSoftwareCommand}"/>
+                    </StackPanel>
                     
-                    <ListView Grid.Row="1" 
-                              ItemsSource="{Binding Files}"
-                              Background="Transparent"
-                              BorderThickness="0">
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Header="选择" Width="60">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <CheckBox IsChecked="{Binding IsSelected}"/>
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                                <GridViewColumn Header="文件名" Width="300" DisplayMemberBinding="{Binding Name}"/>
-                                <GridViewColumn Header="大小" Width="100" DisplayMemberBinding="{Binding SizeDisplay}"/>
-                                <GridViewColumn Header="类型" Width="120" DisplayMemberBinding="{Binding Type}"/>
-                            </GridView>
-                        </ListView.View>
-                        
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Foreground" Value="#E2E8F0"/>
-                                <Setter Property="Padding" Value="5"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListViewItem">
-                                            <Border x:Name="border" 
-                                                    Background="Transparent" 
-                                                    Padding="{TemplateBinding Padding}"
-                                                    CornerRadius="6">
-                                                <ContentPresenter/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#334155"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                    </ListView>
+                    <Border Grid.Row="1" 
+                            Background="#1E293B" 
+                            CornerRadius="12" 
+                            Padding="20">
+                        <DataGrid ItemsSource="{Binding Software}"
+                                  AutoGenerateColumns="False"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  RowBackground="#1E293B"
+                                  AlternatingRowBackground="#334155"
+                                  Foreground="#E2E8F0"
+                                  GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#334155"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="False"
+                                  SelectionMode="Extended">
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Header="选择" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                                <DataGridTextColumn Header="软件名称" Binding="{Binding Name}" Width="250" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="版本" Binding="{Binding Version}" Width="100" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="发布者" Binding="{Binding Publisher}" Width="150" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="安装路径" Binding="{Binding InstallPath}" Width="*" IsReadOnly="True"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
                 </Grid>
-            </Border>
-        </Grid>
+            </TabItem>
+        </TabControl>
         
         <!-- Footer -->
         <Border Grid.Row="2" Background="#1E293B" Padding="20">

@@ -1,14 +1,26 @@
 using System;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace DiskCleaner.Models
 {
-    public class SoftwareInfo
+    public partial class SoftwareInfo : ObservableObject
     {
-        public string Name { get; set; }
-        public string Version { get; set; }
-        public string Publisher { get; set; }
-        public string InstallPath { get; set; }
-        public string UninstallString { get; set; }
-        public bool IsSelected { get; set; }
+        [ObservableProperty]
+        private string _name = string.Empty;
+
+        [ObservableProperty]
+        private string _version = string.Empty;
+
+        [ObservableProperty]
+        private string _publisher = string.Empty;
+
+        [ObservableProperty]
+        private string _installPath = string.Empty;
+
+        [ObservableProperty]
+        private string _uninstallString = string.Empty;
+
+        [ObservableProperty]
+        private bool _isSelected;
     }
 }
