@@ -128,7 +128,7 @@
                                     <TextBlock Text="最小文件大小：" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,5"/>
                                     <ComboBox SelectedIndex="1" FontSize="12">
                                         <ComboBoxItem Content="50 MB"/>
-                                        <ComboBoxItem Content="100 MB" IsSelected="True"/>
+                                        <ComboBoxItem Content="100 MB"/>
                                         <ComboBoxItem Content="500 MB"/>
                                         <ComboBoxItem Content="1 GB"/>
                                     </ComboBox>
